@@ -75,11 +75,11 @@ void zlog_rule_profile(zlog_rule_t * a_rule, int flag)
 /*******************************************************************************/
 
 #define output_file_mkdir(a,b) \
-        char *path = strrchr(a,'/'); \
-        if (path) { \
-            *path = '\0'; \
-            mkdir(a,0600); \
-            *path = '/'; \
+        char *dir = strrchr(a,'/'); \
+        if (dir) { \
+            *dir = '\0'; \
+            mkdir(a,0700); \
+            *dir = '/'; \
             b \
         }
             
@@ -281,7 +281,7 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 	fd = open(zlog_buf_str(a_thread->path_buf),
 		a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	if (fd < 0) {
-	    output_file_mkdir(a_rule->file_path,{
+	    output_file_mkdir(zlog_buf_str(a_thread->path_buf),{
 	                    fd = open(zlog_buf_str(a_thread->path_buf),
 	                            a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	                        });
@@ -327,7 +327,7 @@ static int zlog_rule_output_dynamic_file_rotate(zlog_rule_t * a_rule, zlog_threa
 	path = zlog_buf_str(a_thread->path_buf);
 	fd = open(path, a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	if (fd < 0) {
-	    output_file_mkdir(a_rule->file_path,{
+	    output_file_mkdir(path,{
 	            fd = open(path, a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	                        });
         if (fd < 0) {
