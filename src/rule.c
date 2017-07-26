@@ -74,6 +74,15 @@ void zlog_rule_profile(zlog_rule_t * a_rule, int flag)
 
 /*******************************************************************************/
 
+#define output_file_mkdir(a,b) \
+        char *path = strrchr(a,'/'); \
+        if (path) { \
+            *path = '\0'; \
+            mkdir(a,0600); \
+            *path = '/'; \
+            b \
+        }
+            
 static int zlog_rule_output_static_file_single(zlog_rule_t * a_rule, zlog_thread_t * a_thread)
 {
 	struct stat stb;
@@ -104,8 +113,15 @@ static int zlog_rule_output_static_file_single(zlog_rule_t * a_rule, zlog_thread
 			O_WRONLY | O_APPEND | O_CREAT | a_rule->file_open_flags,
 			a_rule->file_perms);
 		if (a_rule->static_fd < 0) {
-			zc_error("open file[%s] fail, errno[%d]", a_rule->file_path, errno);
-			return -1;
+		    output_file_mkdir(a_rule->file_path,{
+		            a_rule->static_fd = open(a_rule->file_path,
+		                        O_WRONLY | O_APPEND | O_CREAT | a_rule->file_open_flags,
+		                        a_rule->file_perms);
+		    });
+		    if (a_rule->static_fd < 0) {
+                zc_error("open file[%s] fail, errno[%d]", a_rule->file_path, errno);
+                return -1;
+		    }
 		}
 
 		/* save off the new dev/inode info from the stat call we already did */
@@ -171,8 +187,14 @@ static int zlog_rule_output_static_file_rotate(zlog_rule_t * a_rule, zlog_thread
 	fd = open(a_rule->file_path, 
 		a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	if (fd < 0) {
-		zc_error("open file[%s] fail, errno[%d]", a_rule->file_path, errno);
-		return -1;
+	    output_file_mkdir(a_rule->file_path,{
+	            fd = open(a_rule->file_path, 
+	                    a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
+	                });
+        if (fd < 0) {
+            zc_error("open file[%s] fail, errno[%d]", a_rule->file_path, errno);
+            return -1;
+        }
 	}
 
 	len = zlog_buf_len(a_thread->msg_buf);
@@ -259,8 +281,14 @@ static int zlog_rule_output_dynamic_file_single(zlog_rule_t * a_rule, zlog_threa
 	fd = open(zlog_buf_str(a_thread->path_buf),
 		a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	if (fd < 0) {
-		zc_error("open file[%s] fail, errno[%d]", zlog_buf_str(a_thread->path_buf), errno);
-		return -1;
+	    output_file_mkdir(a_rule->file_path,{
+	                    fd = open(zlog_buf_str(a_thread->path_buf),
+	                            a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
+	                        });
+        if (fd < 0) {
+            zc_error("open file[%s] fail, errno[%d]", zlog_buf_str(a_thread->path_buf), errno);
+            return -1;
+        }
 	}
 
 	if (write(fd, zlog_buf_str(a_thread->msg_buf), zlog_buf_len(a_thread->msg_buf)) < 0) {
@@ -299,8 +327,13 @@ static int zlog_rule_output_dynamic_file_rotate(zlog_rule_t * a_rule, zlog_threa
 	path = zlog_buf_str(a_thread->path_buf);
 	fd = open(path, a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
 	if (fd < 0) {
-		zc_error("open file[%s] fail, errno[%d]", zlog_buf_str(a_thread->path_buf), errno);
-		return -1;
+	    output_file_mkdir(a_rule->file_path,{
+	            fd = open(path, a_rule->file_open_flags | O_WRONLY | O_APPEND | O_CREAT, a_rule->file_perms);
+	                        });
+        if (fd < 0) {
+            zc_error("open file[%s] fail, errno[%d]", zlog_buf_str(a_thread->path_buf), errno);
+            return -1;
+        }
 	}
 
 	len = zlog_buf_len(a_thread->msg_buf);
@@ -823,8 +856,15 @@ zlog_rule_t *zlog_rule_new(char *line,
 				O_WRONLY | O_APPEND | O_CREAT | a_rule->file_open_flags,
 				a_rule->file_perms);
 			if (a_rule->static_fd < 0) {
-				zc_error("open file[%s] fail, errno[%d]", a_rule->file_path, errno);
-				goto err;
+			    output_file_mkdir(a_rule->file_path,{
+			                    a_rule->static_fd = open(a_rule->file_path,
+			                            O_WRONLY | O_APPEND | O_CREAT | a_rule->file_open_flags,
+			                            a_rule->file_perms);
+			                        });
+                if (a_rule->static_fd < 0) {
+                    zc_error("open file[%s] fail, errno[%d]", a_rule->file_path, errno);
+                    goto err;
+                }
 			}
 
 			/* save off the inode information for checking for a changed file later on */
